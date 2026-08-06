@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ recipe.title }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('recipes.detail', recipe_id=recipe.id) }}">&laquo; {{ recipe.title }}</a></p>
+<h1>Edit recipe</h1>
+
+{% if parse_error %}
+<p class="error">Re-parse failed: {{ parse_error }}</p>
+{% endif %}
+{% if reparsed %}
+<p class="flash">Re-parsed from raw text below — review, then Save to keep it.</p>
+{% endif %}
+
+{% set src = reparsed if reparsed else recipe %}
+<form method="post" action="{{ url_for('recipes.edit', recipe_id=recipe.id) }}">
+  <label>Title
+    <input type="text" name="title" value="{{ src.title }}" required>
+  </label>
+  <label>Servings (optional)
+    <input type="number" name="servings" min="1" value="{{ src.servings or '' }}">
+  </label>
+  <label>Ingredients (one per line)
+    <textarea name="ingredients">{% for ing in src.ingredients %}{{ [ing.quantity, ing.unit, ing.name] | select | join(' ') }}
+{% endfor %}</textarea>
+  </label>
+  <label>Steps (one per line)
+    <textarea name="steps">{% for step in src.steps %}{{ step }}
+{% endfor %}</textarea>
+  </label>
+  <label>Tags (comma-separated)
+    <input type="text" name="tags" value="{{ recipe.tags | join(', ') }}">
+  </label>
+  <button type="submit">Save</button>
+</form>
+
+{% if recipe.raw_text %}
+<h2>Raw source text</h2>
+<p class="muted">Fix the wording here, then re-parse for another attempt at extracting a recipe from it.</p>
+<form method="post" action="{{ url_for('recipes.reparse', recipe_id=recipe.id) }}">
+  <textarea name="raw_text">{{ recipe.raw_text }}</textarea>
+  <button type="submit">Re-parse from raw text</button>
+</form>
+{% endif %}
+{% endblock %}

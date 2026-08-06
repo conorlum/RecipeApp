@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ recipe.title }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('recipes.list_recipes') }}">&laquo; Recipes</a></p>
+<h1>{{ recipe.title }}</h1>
+<p class="muted">
+  Status: {{ recipe.status }} &middot; Made {{ recipe.times_made }} time{{ 's' if recipe.times_made != 1 else '' }}
+  {% if recipe.servings %} &middot; Serves {{ recipe.servings }}{% endif %}
+  {% if recipe.tags %} &middot; {{ recipe.tags | join(', ') }}{% endif %}
+</p>
+{% if recipe.shared_from_user_id %}
+<p class="muted">Shared from another user's library.</p>
+{% endif %}
+
+<div class="row">
+  <form method="post" action="{{ url_for('recipes.mark_made', recipe_id=recipe.id) }}">
+    <button type="submit">I made this</button>
+  </form>
+  {% if recipe.status != 'core' %}
+  <form method="post" action="{{ url_for('recipes.mark_core', recipe_id=recipe.id) }}">
+    <button type="submit">Mark as Core</button>
+  </form>
+  {% endif %}
+  <a href="{{ url_for('recipes.edit', recipe_id=recipe.id) }}">Edit</a>
+  <a href="{{ url_for('recipes.share', recipe_id=recipe.id) }}">Send to...</a>
+  <a href="{{ url_for('recipes.delete', recipe_id=recipe.id) }}">Delete</a>
+</div>
+
+<form method="post" action="{{ url_for('grocery.add_recipe_to_current', recipe_id=recipe.id) }}" class="row">
+  <label style="flex:1">Scale
+    <input type="number" name="scale" value="1" min="0" step="0.5">
+  </label>
+  <button type="submit" style="align-self:flex-end">Add to grocery list</button>
+</form>
+
+<h2>Ingredients</h2>
+{% if recipe.ingredients %}
+<ul class="plain">
+  {% for ing in recipe.ingredients %}
+  <li>{{ [ing.quantity, ing.unit, ing.name] | select | join(' ') }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No ingredients recorded.</p>
+{% endif %}
+
+<h2>Steps</h2>
+{% if recipe.steps %}
+<ol>
+  {% for step in recipe.steps %}
+  <li>{{ step }}</li>
+  {% endfor %}
+</ol>
+{% else %}
+<p class="muted">No steps recorded.</p>
+{% endif %}
+
+<h2>Notes</h2>
+<form method="post" action="{{ url_for('recipes.add_note', recipe_id=recipe.id) }}">
+  <textarea name="note_text" placeholder="Add a note or tweak..."></textarea>
+  <button type="submit">Add note</button>
+</form>
+{% if recipe.notes %}
+<ul class="plain">
+  {% for note in recipe.notes %}
+  <li><span class="muted">{{ note.created_at.strftime('%Y-%m-%d') }}</span> — {{ note.note_text }}</li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No notes yet.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Review import{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('recipes.list_recipes') }}">&laquo; Recipes</a></p>
+<h1>Review</h1>
+
+{% if error %}
+<p class="error">Couldn't parse a recipe from this text: {{ error }}</p>
+<p class="muted">Fix the text below and re-parse, or give up and go back.</p>
+{% endif %}
+
+{% if parsed %}
+<p class="flash">Parsed — review and edit before saving.</p>
+<form method="post" action="{{ url_for('ingest.save_import') }}">
+  <input type="hidden" name="source_type" value="{{ source_type }}">
+  <input type="hidden" name="source_url" value="{{ source_url }}">
+  <input type="hidden" name="raw_text" value="{{ raw_text | e }}">
+  <label>Title
+    <input type="text" name="title" value="{{ parsed.title or '' }}" required>
+  </label>
+  <label>Servings (optional)
+    <input type="number" name="servings" min="1" value="{{ parsed.servings or '' }}">
+  </label>
+  <label>Ingredients (one per line)
+    <textarea name="ingredients">{{ ingredients_text }}</textarea>
+  </label>
+  <label>Steps (one per line)
+    <textarea name="steps">{{ steps_text }}</textarea>
+  </label>
+  <label>Tags (comma-separated)
+    <input type="text" name="tags">
+  </label>
+  <button type="submit">Save recipe</button>
+</form>
+{% endif %}
+
+<h2>Raw source text</h2>
+<p class="muted">Tweak the wording here and re-parse for another attempt.</p>
+<form method="post" action="{{ url_for('ingest.reparse_from_raw') }}">
+  <input type="hidden" name="source_type" value="{{ source_type }}">
+  <input type="hidden" name="source_url" value="{{ source_url }}">
+  <textarea name="raw_text">{{ raw_text }}</textarea>
+  <button type="submit">Re-parse from raw text</button>
+</form>
+{% endblock %}

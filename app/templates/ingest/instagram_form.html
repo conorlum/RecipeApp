@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Import from Instagram{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('recipes.list_recipes') }}">&laquo; Recipes</a></p>
+<h1>Import from Instagram</h1>
+<p class="muted">Copy the caption text from the post and paste it below.</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post">
+  <label>Caption text
+    <textarea name="raw_text" required autofocus></textarea>
+  </label>
+  <label>Post URL (optional, just for reference)
+    <input type="url" name="source_url">
+  </label>
+  <button type="submit">Parse</button>
+</form>
+{% endblock %}

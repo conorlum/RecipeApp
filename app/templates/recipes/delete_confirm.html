@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Delete {{ recipe.title }}{% endblock %}
+{% block content %}
+<h1>Delete "{{ recipe.title }}"?</h1>
+<p>This removes the recipe and all of its notes. This cannot be undone.</p>
+<form method="post" action="{{ url_for('recipes.delete', recipe_id=recipe.id) }}">
+  <button type="submit">Confirm delete</button>
+</form>
+<p><a href="{{ url_for('recipes.detail', recipe_id=recipe.id) }}">Cancel</a></p>
+{% endblock %}

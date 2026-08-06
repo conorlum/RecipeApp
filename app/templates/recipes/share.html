@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Send {{ recipe.title }}{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('recipes.detail', recipe_id=recipe.id) }}">&laquo; {{ recipe.title }}</a></p>
+<h1>Send "{{ recipe.title }}" to...</h1>
+<p class="muted">Copies the title, ingredients, steps, tags, and your notes into their library as a new recipe (status starts back at Experimental).</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% if friends %}
+<form method="post">
+  <label>Username
+    <select name="username">
+      {% for friend in friends %}
+      <option value="{{ friend.username }}">{{ friend.username }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit">Send</button>
+</form>
+{% else %}
+<p class="muted">No other users yet.</p>
+{% endif %}
+{% endblock %}

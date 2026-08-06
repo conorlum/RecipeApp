@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Add recipe{% endblock %}
+{% block content %}
+<h1>Add a recipe</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post">
+  <label>Title
+    <input type="text" name="title" value="{{ form.title if form else '' }}" required>
+  </label>
+  <label>Servings (optional)
+    <input type="number" name="servings" min="1">
+  </label>
+  <label>Ingredients (one per line, e.g. "2 cups flour")
+    <textarea name="ingredients"></textarea>
+  </label>
+  <label>Steps (one per line)
+    <textarea name="steps"></textarea>
+  </label>
+  <label>Tags (comma-separated)
+    <input type="text" name="tags">
+  </label>
+  <button type="submit">Save recipe</button>
+</form>
+{% endblock %}

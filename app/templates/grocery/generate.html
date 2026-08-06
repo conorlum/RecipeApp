@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Generate grocery list{% endblock %}
+{% block content %}
+<p><a href="{{ url_for('grocery.current_list') }}">&laquo; Grocery list</a></p>
+<h1>Generate a grocery list</h1>
+<p class="muted">Pick 1&ndash;4 recipes. This starts a brand-new list.</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+{% if recipes %}
+<form method="post">
+  <ul class="plain">
+    {% for recipe in recipes %}
+    <li class="row">
+      <input type="checkbox" name="recipe_ids" value="{{ recipe.id }}" id="r{{ recipe.id }}">
+      <label for="r{{ recipe.id }}" style="flex:1;display:inline">{{ recipe.title }}</label>
+      {% if recipe.servings %}
+      <label class="muted" style="display:inline">servings wanted (makes {{ recipe.servings }})
+        <input type="number" name="scale_{{ recipe.id }}" value="{{ recipe.servings }}" min="0" step="1" style="width:5em">
+      </label>
+      {% else %}
+      <label class="muted" style="display:inline">scale
+        <input type="number" name="scale_{{ recipe.id }}" value="1" min="0" step="0.5" style="width:5em">
+      </label>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <button type="submit">Build list</button>
+</form>
+{% else %}
+<p class="muted">You don't have any recipes yet.</p>
+{% endif %}
+{% endblock %}

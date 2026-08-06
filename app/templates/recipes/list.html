@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Recipes{% endblock %}
+{% block content %}
+<h1>Your recipes</h1>
+
+<form method="get">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search by title">
+  <button type="submit">Search</button>
+</form>
+
+<p>
+  <a href="{{ url_for('recipes.new_recipe') }}">+ Add recipe manually</a> |
+  <a href="{{ url_for('ingest.import_website') }}">+ Import from website</a> |
+  <a href="{{ url_for('ingest.import_instagram') }}">+ Import from Instagram</a>
+</p>
+
+{% if recipes %}
+<ul class="plain">
+  {% for recipe in recipes %}
+  <li>
+    <a href="{{ url_for('recipes.detail', recipe_id=recipe.id) }}">{{ recipe.title }}</a>
+    <span class="muted">— {{ recipe.status }}{% if recipe.tags %} — {{ recipe.tags | join(', ') }}{% endif %}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No recipes yet.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Pantries{% endblock %}
+{% block content %}
+<h1>Pantries</h1>
+<p class="muted">Items are presence-only — being in a pantry means "always stocked," no quantities.</p>
+
+<form method="post" action="{{ url_for('pantries.new_pantry') }}" class="row">
+  <input type="text" name="name" placeholder="New pantry name (e.g. Cabin)">
+  <button type="submit">Add pantry</button>
+</form>
+
+{% for pantry in pantries %}
+<h2>
+  {{ pantry.name }}
+  {% if pantry.id == active_pantry_id %}<span class="muted">(active)</span>{% endif %}
+</h2>
+
+<div class="row">
+  {% if pantry.id != active_pantry_id %}
+  <form method="post" action="{{ url_for('pantries.switch_active') }}">
+    <input type="hidden" name="pantry_id" value="{{ pantry.id }}">
+    <button type="submit">Make active</button>
+  </form>
+  {% endif %}
+  <form method="post" action="{{ url_for('pantries.rename_pantry', pantry_id=pantry.id) }}" class="row">
+    <input type="text" name="name" placeholder="Rename to...">
+    <button type="submit">Rename</button>
+  </form>
+  <form method="post" action="{{ url_for('pantries.delete_pantry', pantry_id=pantry.id) }}">
+    <button type="submit">Delete pantry</button>
+  </form>
+</div>
+
+<form method="post" action="{{ url_for('pantries.add_item', pantry_id=pantry.id) }}" class="row">
+  <input type="text" name="name" placeholder="Add item (e.g. garlic)">
+  <button type="submit">Add</button>
+</form>
+
+{% if pantry.items %}
+<ul class="plain">
+  {% for item in pantry.items %}
+  <li class="row">
+    <span style="flex:1">{{ item.name }}</span>
+    <form method="post" action="{{ url_for('pantries.delete_item', pantry_id=pantry.id, item_id=item.id) }}">
+      <button type="submit">Remove</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No items yet.</p>
+{% endif %}
+{% endfor %}
+{% endblock %}

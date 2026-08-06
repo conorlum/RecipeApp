@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Grocery list{% endblock %}
+{% block content %}
+<h1>Grocery list</h1>
+<p><a href="{{ url_for('grocery.generate') }}">Generate a new list from recipes</a></p>
+
+{% if grocery_list %}
+<form method="post" action="{{ url_for('grocery.add_manual_item') }}" class="row">
+  <input type="text" name="name" placeholder="Add item (e.g. paper towels)">
+  <button type="submit">Add</button>
+</form>
+
+{% if grocery_list.items %}
+<ul class="plain">
+  {% for item in grocery_list.items | sort(attribute='checked') %}
+  <li class="row">
+    <form method="post" action="{{ url_for('grocery.toggle_item', item_id=item.id) }}" style="flex:1">
+      <label class="row" style="cursor:pointer">
+        <input type="checkbox" onchange="this.form.submit()" {{ 'checked' if item.checked else '' }}>
+        <span {% if item.checked %}style="text-decoration:line-through;color:#999"{% endif %}>
+          {{ [item.quantity, item.unit, item.name] | select | join(' ') }}
+        </span>
+      </label>
+    </form>
+    {% if item.unit == 'Conor fix this' %}<span class="error">Conor fix this</span>{% endif %}
+    {% if item.source == 'manual' %}<span class="muted">(manual)</span>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">Nothing on this list yet.</p>
+{% endif %}
+{% else %}
+<p class="muted">No grocery list yet. Generate one from your recipes, or add an item from any recipe page.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}What can I make?{% endblock %}
+{% block content %}
+<h1>What can I make?</h1>
+<form method="post">
+  <label>Ingredients you have (one per line, pre-filled from your active pantry — edit freely)
+    <textarea name="ingredients">{{ ingredients_text }}</textarea>
+  </label>
+
+  <fieldset>
+    <legend>Search in</legend>
+    <label style="display:inline"><input type="checkbox" name="core" {{ 'checked' if toggles.core else '' }}> Core</label>
+    <label style="display:inline"><input type="checkbox" name="experimental" {{ 'checked' if toggles.experimental else '' }}> Experimental/New</label>
+    <label style="display:inline"><input type="checkbox" name="friends" {{ 'checked' if toggles.friends else '' }}> Friends (core only)</label>
+    <label style="display:inline" class="muted"><input type="checkbox" disabled> Internet (coming later)</label>
+  </fieldset>
+
+  <button type="submit">Search</button>
+</form>
+
+{% if searched %}
+<h2>Results</h2>
+{% if results %}
+<ul class="plain">
+  {% for r in results %}
+  <li>
+    <a href="{{ url_for('recipes.detail', recipe_id=r.recipe.id) }}">{{ r.recipe.title }}</a>
+    <span class="muted">({{ r.label }}) — {{ r.matched }}/{{ r.total }} matched</span>
+    {% if r.missing %}<div class="muted">missing: {{ r.missing | join(', ') }}</div>{% endif %}
+    <form method="post" action="{{ url_for('grocery.add_recipe_to_current', recipe_id=r.recipe.id) }}" style="display:inline">
+      <input type="hidden" name="scale" value="1">
+      <button type="submit">Add to grocery list</button>
+    </form>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">No matches in the selected pools.</p>
+{% endif %}
+{% endif %}
+{% endblock %}

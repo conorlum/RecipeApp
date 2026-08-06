@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Review grocery list{% endblock %}
+{% block content %}
+<h1>Review grocery list</h1>
+<p class="muted">Combined from your selected recipes, with active-pantry items already dropped. Check "I already have this" for anything not worth putting on the list.</p>
+
+<form method="post" action="{{ url_for('grocery.generate_confirm') }}">
+  <input type="hidden" name="pantry_id_used" value="{{ pantry_id_used }}">
+  {% for recipe, scale in selected_recipes %}
+  <input type="hidden" name="recipe_id" value="{{ recipe.id }}">
+  <input type="hidden" name="scale_value" value="{{ scale }}">
+  {% endfor %}
+
+  {% if items %}
+  <ul class="plain">
+    {% for item in items %}
+    <li class="row">
+      <input type="hidden" name="item_name" value="{{ item.name }}">
+      <input type="hidden" name="item_quantity" value="{{ item.quantity or '' }}">
+      <input type="hidden" name="item_unit" value="{{ item.unit or '' }}">
+      <span style="flex:1">
+        {{ [item.quantity, item.unit, item.name] | select | join(' ') }}
+        {% if item.unit == 'Conor fix this' %}<span class="error">Conor fix this</span>{% endif %}
+      </span>
+      <label class="muted">
+        <input type="checkbox" name="skip" value="{{ loop.index0 }}"> I already have this
+      </label>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">Everything needed is already in your active pantry.</p>
+  {% endif %}
+
+  <button type="submit">Save grocery list</button>
+</form>
+{% endblock %}
