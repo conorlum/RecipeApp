@@ -1,9 +1,9 @@
-from flask import Blueprint, render_template, request, redirect, url_for, g, flash
+from flask import Blueprint, render_template, request, redirect, url_for, g, flash, Response, abort
 
 from app.extensions import db
 from app.auth_utils import login_required
 from app.models import User, Recipe, RecipeNote
-from app.services.parsing import parse_ingredient_line, parse_recipe_with_claude
+from app.services.parsing import parse_ingredient_line, parse_recipe_with_claude, parse_recipe_image_with_claude
 
 bp = Blueprint("recipes", __name__, url_prefix="/recipes")
 
@@ -81,6 +81,9 @@ def edit(recipe_id):
         recipe.tags = _split_tags(request.form.get("tags"))
         servings = request.form.get("servings", "").strip()
         recipe.servings = int(servings) if servings.isdigit() else None
+        # Cleared the first time the recipe is opened and saved/confirmed —
+        # not just opened (see handoff: needs_review).
+        recipe.needs_review = False
         db.session.commit()
         return redirect(url_for("recipes.detail", recipe_id=recipe.id))
 
@@ -106,6 +109,40 @@ def reparse(recipe_id):
         return render_template("recipes/edit.html", recipe=recipe, parse_error=result["error"])
 
     return render_template("recipes/edit.html", recipe=recipe, reparsed=result)
+
+
+@bp.route("/<int:recipe_id>/reparse-image", methods=["POST"])
+@login_required
+def reparse_image(recipe_id):
+    """Screenshot-upload counterpart to reparse() — how a needs_review stub
+    (or any recipe) gets finished via path 3 of Instagram ingestion."""
+    recipe = _get_owned_recipe(recipe_id)
+    image_file = request.files.get("image")
+    if not image_file or not image_file.filename:
+        flash("Choose a screenshot to upload.")
+        return redirect(url_for("recipes.edit", recipe_id=recipe.id))
+
+    image_bytes = image_file.read()
+    media_type = image_file.mimetype or "image/jpeg"
+    # Persisted immediately either way — raw_image is kept permanently as
+    # the source of truth for future fixes, same as raw_text.
+    recipe.raw_image = image_bytes
+    db.session.commit()
+
+    result = parse_recipe_image_with_claude(image_bytes, media_type)
+    if "error" in result:
+        return render_template("recipes/edit.html", recipe=recipe, parse_error=result["error"])
+
+    return render_template("recipes/edit.html", recipe=recipe, reparsed=result)
+
+
+@bp.route("/<int:recipe_id>/raw-image")
+@login_required
+def raw_image(recipe_id):
+    recipe = _get_owned_recipe(recipe_id)
+    if not recipe.raw_image:
+        abort(404)
+    return Response(recipe.raw_image, mimetype="image/jpeg")
 
 
 @bp.route("/<int:recipe_id>/notes", methods=["POST"])

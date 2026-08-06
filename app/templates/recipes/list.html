@@ -11,7 +11,8 @@
 <p>
   <a href="{{ url_for('recipes.new_recipe') }}">+ Add recipe manually</a> |
   <a href="{{ url_for('ingest.import_website') }}">+ Import from website</a> |
-  <a href="{{ url_for('ingest.import_instagram') }}">+ Import from Instagram</a>
+  <a href="{{ url_for('ingest.import_instagram') }}">+ Import from Instagram</a> |
+  <a href="{{ url_for('ingest.import_screenshot') }}">+ Import from screenshot</a>
 </p>
 
 {% if recipes %}
@@ -19,6 +20,7 @@
   {% for recipe in recipes %}
   <li>
     <a href="{{ url_for('recipes.detail', recipe_id=recipe.id) }}">{{ recipe.title }}</a>
+    {% if recipe.needs_review %}<span class="badge">needs review</span>{% endif %}
     <span class="muted">— {{ recipe.status }}{% if recipe.tags %} — {{ recipe.tags | join(', ') }}{% endif %}</span>
   </li>
   {% endfor %}

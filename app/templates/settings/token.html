@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}API token{% endblock %}
+{% block content %}
+<h1>API token</h1>
+<p class="muted">
+  Used to authenticate the Instagram Shortcut (as a Bearer header) — it's the only route in the
+  app that doesn't use your session login. Paste this into the Shortcut's header configuration.
+  Regenerating invalidates the old token, so the Shortcut would need updating too.
+</p>
+<p><code>{{ token }}</code></p>
+<form method="post" action="{{ url_for('settings.regenerate_token') }}">
+  <button type="submit">Regenerate token</button>
+</form>
+{% endblock %}

@@ -4,11 +4,19 @@
 <p><a href="{{ url_for('recipes.detail', recipe_id=recipe.id) }}">&laquo; {{ recipe.title }}</a></p>
 <h1>Edit recipe</h1>
 
+{% if recipe.needs_review %}
+  {% if not recipe.ingredients and not recipe.steps %}
+  <p class="error">Needs caption — this came in from the Instagram Shortcut but no caption could be fetched. Paste the caption text or upload a screenshot below, then Save.</p>
+  {% else %}
+  <p class="error">Needs review — this was imported automatically and hasn't been confirmed yet. Check the fields below, then Save.</p>
+  {% endif %}
+{% endif %}
+
 {% if parse_error %}
 <p class="error">Re-parse failed: {{ parse_error }}</p>
 {% endif %}
 {% if reparsed %}
-<p class="flash">Re-parsed from raw text below — review, then Save to keep it.</p>
+<p class="flash">Re-parsed below — review, then Save to keep it.</p>
 {% endif %}
 
 {% set src = reparsed if reparsed else recipe %}
@@ -33,12 +41,26 @@
   <button type="submit">Save</button>
 </form>
 
-{% if recipe.raw_text %}
-<h2>Raw source text</h2>
-<p class="muted">Fix the wording here, then re-parse for another attempt at extracting a recipe from it.</p>
-<form method="post" action="{{ url_for('recipes.reparse', recipe_id=recipe.id) }}">
-  <textarea name="raw_text">{{ recipe.raw_text }}</textarea>
-  <button type="submit">Re-parse from raw text</button>
-</form>
+{% if recipe.raw_image %}
+<h2>Screenshot on file</h2>
+<img src="{{ url_for('recipes.raw_image', recipe_id=recipe.id) }}" style="max-width:100%">
 {% endif %}
+
+<h2>Raw source text</h2>
+<p class="muted">
+  {% if recipe.raw_text %}Fix the wording here, then re-parse for another attempt at extracting a recipe from it.
+  {% else %}Paste the caption text here to parse it.{% endif %}
+</p>
+<form method="post" action="{{ url_for('recipes.reparse', recipe_id=recipe.id) }}">
+  <textarea name="raw_text">{{ recipe.raw_text or '' }}</textarea>
+  <button type="submit">{{ 'Re-parse from raw text' if recipe.raw_text else 'Parse from pasted text' }}</button>
+</form>
+
+<h2>Or upload a screenshot</h2>
+<form method="post" action="{{ url_for('recipes.reparse_image', recipe_id=recipe.id) }}" enctype="multipart/form-data">
+  <label>Screenshot
+    <input type="file" name="image" accept="image/*">
+  </label>
+  <button type="submit">Parse from screenshot</button>
+</form>
 {% endblock %}

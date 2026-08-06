@@ -13,7 +13,7 @@ Everything is resolved — nothing here should block the sub-agent from building
 **Decided**
 - **Pantry items are presence-only, always-stocked.** No quantity tracking at all — if an item is in the active pantry, it's assumed the kitchen always has enough, full stop. A grocery list just drops that ingredient entirely; there's no partial-subtraction logic to build.
 - **Manual grocery-list items.** Any grocery list — whether just generated from recipes or already saved — has a simple "add item" input for things that aren't tied to any recipe (paper towels, dish soap, whatever). These go straight onto the list and are **not** checked against the active pantry, since adding one manually is a deliberate override, not something to second-guess.
-- **Instagram capture:** copy/paste the caption text into a form, same pattern as website import. Claude parses it, but both the raw pasted text and the parsed structured fields are stored permanently — if the parse gets something wrong, you can go back and manually fix it (or re-parse) using the raw text as the source of truth. No share-sheet/bookmarklet/bot needed for v1.
+- **Instagram capture — redesigned.** Primary path is now a Shortcuts share-sheet action, not paste-text. From Instagram's native Share menu, a personal iOS Shortcut sends the Reel's URL straight to the app, authenticated with a personal API token (not a session cookie, since Shortcuts has no browser session). The backend tries to auto-fetch the caption from the post's public page (same fetch logic as website import); if that works, it parses normally. If the account is private or the fetch fails, the recipe is saved as a stub (`needs_review = true`, empty ingredients/steps) rather than lost, and gets finished later from inside the app via paste-text or a screenshot upload. Paste-text and screenshot upload both remain available as direct, synchronous entry points too — not just stub-completion tools. Screenshot upload is new: Claude parses the image directly (vision), no separate OCR step. See Instagram ingestion below for the full design.
 - **Friend visibility:** you can see your friends' *core* recipes only — nothing experimental, nothing else. No connection/permission system needed.
 - **UI style:** minimal, unstyled-leaning presentation for v1 — plain HTML, super simple pages throughout, focus on making the information clear and usable. No real visual design pass yet; that's a later iteration.
 - **"Mark as Core":** two paths, both active. (1) Auto-promotes from `experimental` to `core` once a recipe has been marked "made" 5 times. (2) A manual "Mark as Core" button is always available too, for promoting a recipe immediately if you already know it's a keeper. Requires a `times_made` counter incremented by an "I made this" action (see Core flows).
@@ -43,13 +43,14 @@ Everything is resolved — nothing here should block the sub-agent from building
 1. `/login` — text input for username only.
 2. If username exists → set a signed session cookie (Flask's built-in `session`, using `SECRET_KEY`) → redirect to `/recipes`.
 3. If username doesn't exist → create the user row → same cookie flow.
-4. All recipe routes require a valid session; scope every query by `owner_id`.
+4. All recipe routes require a valid session; scope every query by `owner_id`. One exception: `POST /api/ingest` (the Instagram Shortcut endpoint) authenticates via the `api_token` bearer header instead, since it's called from outside the browser — see Instagram ingestion.
 
 ## Data model (Postgres via SQLAlchemy)
 ```
 users
   id (pk)
   username (unique, not null)
+  api_token           # random string, nullable until first generated — used to authenticate the Instagram Shortcut, separate from session-cookie login. Viewable/regenerable from a settings page.
   created_at
 
 recipes
@@ -62,6 +63,8 @@ recipes
   source_type        # 'manual' | 'instagram' | 'website'
   source_url         # nullable, for instagram/website
   raw_text           # original pasted/fetched text, kept for re-parsing later
+  raw_image          # nullable, stores a screenshot's image bytes when that was the source instead of/alongside text — same "kept permanently as source of truth" principle as raw_text. No dedicated file storage in this stack, so this lives directly in Postgres; fine at this app's scale, revisit if it ever needs to be bigger.
+  needs_review        # boolean, default false — true for anything created asynchronously via the Instagram Shortcut (whether the caption auto-fetch succeeded or not), since nobody was looking at a screen to confirm it at share-time. Cleared the first time the recipe is opened and saved/confirmed. If ingredients/steps are still empty, the recipe page shows "needs caption" messaging; if they're populated, it shows "needs review" messaging instead — same flag, different message depending on what's actually missing.
   ingredients         # JSONB: [{name, quantity, unit}]
   steps               # JSONB: ordered list of strings
   tags                # JSONB: list of strings
@@ -124,7 +127,7 @@ grocery_list_items
 ## Core flows
 1. **Add recipe manually** — form: title, ingredients (one per line, freeform), steps (freeform), tags.
 2. **Add recipe from website** — user pastes a URL → server fetches the page → try JSON-LD `Recipe` schema first → if absent, send raw page text to Claude with a strict structured-JSON extraction prompt → show the parsed result to the user for a quick review/edit before saving (parsing won't be perfect, always confirm before commit).
-3. **Add recipe from Instagram** — user pastes the caption text (not a URL scrape) → same Claude parsing + review-before-save step.
+3. **Add recipe from Instagram** — three paths, see Instagram ingestion for full detail: (a) share the Reel from Instagram's Share Sheet via a personal Shortcut, token-authenticated, lands as a recipe flagged `needs_review`; (b) paste the caption text into a form; (c) upload a screenshot, parsed by Claude as an image. (b) and (c) also double as how a `needs_review` stub gets finished.
 4. **Fix a parsing mistake anytime** — every imported recipe (website or Instagram) keeps its `raw_text` stored alongside the parsed fields, permanently. An "Edit" screen shows both side by side: parsed fields are directly editable for a manual fix, plus an optional "Re-parse from raw text" button to give Claude another shot after tweaking wording. This isn't just a save-time check — it's available on any recipe, anytime.
 5. **Add notes/tweaks** — free-text entries on a recipe, appended over time, shown newest-first. This is how "recipes I've made and tweaked and liked" accumulates.
 6. **"I made this"** — button on a recipe increments `times_made`. Hitting 5 auto-promotes `status` from `experimental` to `core`. A separate "Mark as Core" button is always available too, for promoting immediately without waiting to hit 5.
@@ -134,9 +137,10 @@ grocery_list_items
 10. **Generate a grocery list** — pick 1–4 recipes from your own library → set a scale per recipe (defaults to 1x, or to a desired serving count if the recipe's `servings` is known) → combine ingredients across the selected recipes (sum quantity when name+unit match exactly, resolve vague quantities via the equivalency table — see Quantity equivalencies — otherwise list separately) → drop anything whose normalized name matches an item in the currently active pantry → show the result as a checkable list, with an additional one-off "I already have this" checkbox per item for anything not worth adding to the pantry permanently → save it (`grocery_lists` + `grocery_list_items`). This always starts a brand-new list.
 11. **Add a manual item to a grocery list** — a plain text input on the grocery list screen, available anytime. Appends a `grocery_list_items` row with `source = manual`. Skips pantry matching entirely — it's on the list because you said so.
 12. **Add a recipe's ingredients to your current grocery list** — available from any recipe page (button: "Add to grocery list"), and from "What can I make?" results (so the in-store scenario is: search → pick a result → tap this). "Current list" = your most recently created `grocery_lists` row; if none exists yet, this creates one. Merge logic per ingredient (after pantry subtraction, same as generation): if the ingredient isn't already on the list, add it unchecked; if it's already on the list and unchecked, sum the quantity in place; if it's already on the list and **checked**, sum the quantity and flip it back to unchecked — since a bigger need means the earlier checkmark can no longer be trusted, and this is the signal to look at it again.
-13. **Browse recipes** — a plain `/recipes` list of your own recipes (title, status, tags), with basic search-by-title. No filtering beyond that in v1.
+13. **Browse recipes** — a plain `/recipes` list of your own recipes (title, status, tags), with basic search-by-title. Recipes with `needs_review = true` get a visible badge so stubs and unconfirmed Shortcut imports are easy to spot and finish. No filtering beyond search in v1.
 14. **Delete a recipe** — a delete button on the recipe page, followed by a required second "Confirm delete" tap. Removes the recipe and cascades to delete its notes.
 15. **Manage quantity equivalencies** — a simple settings list of `phrase → quantity + unit` rows (add/edit/remove), used automatically whenever a grocery list is generated or added to. See Quantity equivalencies below.
+16. **View/regenerate your API token** — a settings page showing the current `api_token` (or generating one on first visit if none exists), with a regenerate button. This is what gets pasted once into the Instagram Shortcut's header configuration — regenerating invalidates the old one, so the Shortcut would need updating too if that's ever used.
 
 ## Pantries
 A pantry is a named set of ingredients the user has on hand in one physical location — "Home," "Cabin," "Office kitchen," whatever. Users can have several, but only one is **active** at a time (`users.active_pantry_id`), switched with a simple dropdown. Items are presence-only for v1 (see Decisions) — adding "garlic" to a pantry means "I always have garlic here," not "I have exactly 3 cloves."
@@ -157,7 +161,23 @@ When building or adding to a grocery list, for any ingredient whose quantity isn
 A small settings screen lets equivalencies be added/edited/removed (`phrase`, `quantity`, `unit`) — the intended workflow is noticing a "Conor fix this" flag on a real shopping trip, then adding the equivalency afterward so it's resolved automatically next time. No fuzzy matching in v1 — exact normalized-phrase match only, grown manually over time. Table is shared across all users rather than personal to each — these are basically universal cooking conventions ("a pinch") not individual preferences, so one person fixing "Conor fix this" once benefits everyone. Cheap to change to per-user later if that turns out wrong.
 
 ## Instagram ingestion
-Capture is a simple paste-text form: the user copies the caption from Instagram and pastes it in, same pattern as the website-import flow but without a URL fetch step. `POST /api/ingest` accepts `{source_type: "instagram", raw_text: string, source_url?: string}` (URL optional, just for reference). Claude parses `raw_text` into structured fields, goes through the same review-before-save screen as other imports, and — critically — the original `raw_text` is kept in the database permanently, not just at parse time. That's what makes the "fix it if the parse is wrong" flow possible later, not just at save time.
+Three ways a recipe can come in from Instagram, in order of how often each should get used:
+
+**1. Share Sheet → Shortcut (primary path, built by the user in the iOS Shortcuts app, not by the sub-agent).** From Instagram's native Share menu, a personal Shortcut sends the shared Reel URL to `POST /api/ingest`, authenticated with the user's `api_token` as a bearer header (no session cookie exists in this context). This is the only route into the app that uses token auth instead of session auth — everything else stays cookie-based.
+
+Backend handling for this endpoint:
+1. Try fetching the post's public page (same fetch logic as website import) and look for the caption in page metadata.
+2. **Caption found** → send it to Claude for parsing exactly like any other import.
+3. **Not found** (private account, fetch blocked, etc.) → save a stub instead of failing: `title` gets a placeholder like "New Instagram recipe," `ingredients`/`steps` stay empty.
+4. Either way, the new recipe is saved with `needs_review = true` — nobody was looking at a screen to confirm it when it came in via Shortcut, so it waits in that state until the user opens it.
+
+**2. Paste-text (fallback / direct entry).** Unchanged from the original design: paste the caption into a form, Claude parses it, goes through the normal synchronous review-before-save screen. `needs_review` is never set true here — the review screen itself is the confirmation.
+
+**3. Screenshot upload (fallback / direct entry, new).** For posts where copying text doesn't work and the auto-fetch can't reach the caption either (private accounts especially). Upload the image through the app; instead of `raw_text`, the image goes into `raw_image` and gets sent to Claude as an image content block in the same parsing call — Claude reads the on-screen text directly, no separate OCR step needed. Same synchronous review-before-save screen as paste-text.
+
+Stub and needs-review recipes get finished using paths 2 or 3 — open the recipe, and instead of a normal edit view it shows "needs caption" (empty fields) or "needs review" (populated but unconfirmed) messaging with a way to paste text or upload a screenshot right there. Saving clears `needs_review`.
+
+`raw_text` (or `raw_image`) is kept permanently either way — that's what makes "fix it if the parse is wrong" available anytime, not just at save time.
 
 ## Suggestion sources (toggles)
 "What can I make?" is scoped by up to four toggleable, combinable pools:
@@ -179,6 +199,8 @@ or, if no usable recipe can be found in the input:
 ```
 `servings` should be a number if the source states one (e.g. "serves 4"), otherwise `null` — don't guess. The backend checks for an `error` key first; if present, the review screen shows that message directly (with the raw text still visible and editable) instead of a blank form, so the reason for the failure is obvious immediately, not something to guess at.
 Always route successful parses through a review/edit screen before saving too — don't trust auto-parse blindly, especially for Instagram captions which are often messy/conversational.
+
+**Screenshot uploads work the same way, just with an image content block instead of text** in the Claude call — same JSON output shape, same error handling, same review screen. No separate OCR step; Claude reads on-screen text directly from the image.
 
 ## Ingredient matching (v1 — keep it simple)
 - Normalize ingredient names on both sides (strip quantities, units, punctuation, lowercase).

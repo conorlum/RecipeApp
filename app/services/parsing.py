@@ -1,3 +1,4 @@
+import base64
 import json
 import re
 
@@ -158,9 +159,10 @@ def fetch_website(url):
     return html, visible_text
 
 
-def parse_recipe_with_claude(raw_text):
-    """Send raw_text to Claude for structured recipe extraction. Returns the
-    parsed recipe dict, or {"error": "..."} if Claude couldn't find one."""
+def _call_claude(content):
+    """Shared Claude call + JSON parse for both the text and image paths.
+    `content` is whatever the Messages API accepts as a single user turn's
+    content: a raw string, or a list of content blocks (e.g. image + text)."""
     import anthropic
 
     client = anthropic.Anthropic(api_key=current_app.config["ANTHROPIC_API_KEY"])
@@ -168,7 +170,7 @@ def parse_recipe_with_claude(raw_text):
         model="claude-sonnet-4-5",
         max_tokens=4096,
         system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": raw_text}],
+        messages=[{"role": "user", "content": content}],
     )
     text = "".join(block.text for block in message.content if block.type == "text").strip()
 
@@ -176,6 +178,24 @@ def parse_recipe_with_claude(raw_text):
         return json.loads(text)
     except ValueError:
         return {"error": "Claude returned something that wasn't valid JSON. Try re-parsing."}
+
+
+def parse_recipe_with_claude(raw_text):
+    """Send raw_text to Claude for structured recipe extraction. Returns the
+    parsed recipe dict, or {"error": "..."} if Claude couldn't find one."""
+    return _call_claude(raw_text)
+
+
+def parse_recipe_image_with_claude(image_bytes, media_type="image/jpeg"):
+    """Same extraction as parse_recipe_with_claude, but from a screenshot:
+    Claude reads on-screen text directly from the image (vision), no
+    separate OCR step. Same JSON output shape, same error handling."""
+    image_b64 = base64.b64encode(image_bytes).decode("ascii")
+    content = [
+        {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_b64}},
+        {"type": "text", "text": "Extract the recipe from this screenshot."},
+    ]
+    return _call_claude(content)
 
 
 def import_from_website(url):
@@ -194,3 +214,22 @@ def import_from_website(url):
 def import_from_instagram(raw_text):
     """Core flow #3: parse a pasted Instagram caption via Claude."""
     return parse_recipe_with_claude(raw_text), raw_text
+
+
+def fetch_instagram_caption(url):
+    """Instagram ingestion path 1 (Shortcut share-sheet): try fetching the
+    post's public page and pulling the caption out of its page metadata
+    (same fetch logic as website import). Returns the caption text, or None
+    if the page couldn't be fetched or has no caption metadata (private
+    account, blocked fetch, etc.) — the caller treats None as "save a stub"
+    per the handoff spec, rather than failing the request."""
+    try:
+        html, _ = fetch_website(url)
+    except Exception:
+        return None
+
+    soup = BeautifulSoup(html, "html.parser")
+    meta = soup.find("meta", property="og:description")
+    if meta and meta.get("content"):
+        return meta["content"].strip()
+    return None

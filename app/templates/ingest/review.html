@@ -5,8 +5,8 @@
 <h1>Review</h1>
 
 {% if error %}
-<p class="error">Couldn't parse a recipe from this text: {{ error }}</p>
-<p class="muted">Fix the text below and re-parse, or give up and go back.</p>
+<p class="error">Couldn't parse a recipe from this {{ 'screenshot' if raw_image_b64 else 'text' }}: {{ error }}</p>
+<p class="muted">{{ 'Re-parse below, or go back and try a different screenshot.' if raw_image_b64 else 'Fix the text below and re-parse, or give up and go back.' }}</p>
 {% endif %}
 
 {% if parsed %}
@@ -14,7 +14,12 @@
 <form method="post" action="{{ url_for('ingest.save_import') }}">
   <input type="hidden" name="source_type" value="{{ source_type }}">
   <input type="hidden" name="source_url" value="{{ source_url }}">
+  {% if raw_image_b64 %}
+  <input type="hidden" name="raw_image_b64" value="{{ raw_image_b64 }}">
+  <input type="hidden" name="media_type" value="{{ media_type }}">
+  {% else %}
   <input type="hidden" name="raw_text" value="{{ raw_text | e }}">
+  {% endif %}
   <label>Title
     <input type="text" name="title" value="{{ parsed.title or '' }}" required>
   </label>
@@ -34,6 +39,17 @@
 </form>
 {% endif %}
 
+{% if raw_image_b64 %}
+<h2>Screenshot</h2>
+<img src="data:{{ media_type }};base64,{{ raw_image_b64 }}" style="max-width:100%">
+<form method="post" action="{{ url_for('ingest.reparse_image_from_raw') }}">
+  <input type="hidden" name="source_type" value="{{ source_type }}">
+  <input type="hidden" name="source_url" value="{{ source_url }}">
+  <input type="hidden" name="raw_image_b64" value="{{ raw_image_b64 }}">
+  <input type="hidden" name="media_type" value="{{ media_type }}">
+  <button type="submit">Re-parse from this screenshot</button>
+</form>
+{% else %}
 <h2>Raw source text</h2>
 <p class="muted">Tweak the wording here and re-parse for another attempt.</p>
 <form method="post" action="{{ url_for('ingest.reparse_from_raw') }}">
@@ -42,4 +58,5 @@
   <textarea name="raw_text">{{ raw_text }}</textarea>
   <button type="submit">Re-parse from raw text</button>
 </form>
+{% endif %}
 {% endblock %}

@@ -18,6 +18,7 @@
     ul.plain li { padding: 0.4em 0; border-bottom: 1px solid #ddd; }
     .muted { color: #666; }
     .row { display: flex; gap: 0.5em; align-items: center; }
+    .badge { background: #ffe08a; color: #664d03; padding: 0.1em 0.5em; border-radius: 3px; font-size: 0.8em; }
   </style>
 </head>
 <body>
@@ -28,6 +29,7 @@
     <a href="{{ url_for('grocery.current_list') }}">Grocery List</a>
     <a href="{{ url_for('what_can_i_make.search') }}">What can I make?</a>
     <a href="{{ url_for('equivalencies.list_equivalencies') }}">Equivalencies</a>
+    <a href="{{ url_for('settings.token') }}">Settings</a>
     <a href="{{ url_for('auth.logout') }}">Logout ({{ g.user.username }})</a>
   </nav>
   <hr>

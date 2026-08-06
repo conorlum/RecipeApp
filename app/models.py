@@ -19,6 +19,7 @@ class User(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
+    api_token = db.Column(db.String(128), unique=True, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=utcnow, nullable=False)
 
     active_pantry_id = db.Column(db.Integer, db.ForeignKey("pantries.id"), nullable=True)
@@ -47,6 +48,8 @@ class Recipe(db.Model):
     source_type = db.Column(db.String(20), nullable=False)  # 'manual' | 'instagram' | 'website'
     source_url = db.Column(db.Text, nullable=True)
     raw_text = db.Column(db.Text, nullable=True)
+    raw_image = db.Column(db.LargeBinary, nullable=True)  # screenshot bytes, when that was the source instead
+    needs_review = db.Column(db.Boolean, default=False, nullable=False)  # true for async Shortcut imports
 
     ingredients = db.Column(JSONB, nullable=False, default=list)  # [{name, quantity, unit}]
     steps = db.Column(JSONB, nullable=False, default=list)  # [str, ...]

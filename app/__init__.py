@@ -21,6 +21,7 @@ def create_app(config_class=Config):
     from app.routes.grocery import bp as grocery_bp
     from app.routes.what_can_i_make import bp as what_can_i_make_bp
     from app.routes.equivalencies import bp as equivalencies_bp
+    from app.routes.settings import bp as settings_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(recipes_bp)
@@ -29,6 +30,7 @@ def create_app(config_class=Config):
     app.register_blueprint(grocery_bp)
     app.register_blueprint(what_can_i_make_bp)
     app.register_blueprint(equivalencies_bp)
+    app.register_blueprint(settings_bp)
 
     app.before_request(load_logged_in_user)
 
