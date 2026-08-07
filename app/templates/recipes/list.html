@@ -3,17 +3,17 @@
 {% block content %}
 <h1>Your recipes</h1>
 
-<form method="get">
-  <input type="text" name="q" value="{{ q }}" placeholder="Search by title">
+<form method="get" class="row" style="margin-bottom: 1em;">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search by title" style="margin-top: 0;">
   <button type="submit">Search</button>
 </form>
 
-<p>
-  <a href="{{ url_for('recipes.new_recipe') }}">+ Add recipe manually</a> |
-  <a href="{{ url_for('ingest.import_website') }}">+ Import from website</a> |
-  <a href="{{ url_for('ingest.import_instagram') }}">+ Import from Instagram</a> |
-  <a href="{{ url_for('ingest.import_screenshot') }}">+ Import from screenshot</a>
-</p>
+<div class="row" style="flex-wrap: wrap; gap: 0.5em; margin-bottom: 1.5em;">
+  <a class="btn" href="{{ url_for('recipes.new_recipe') }}">+ Add recipe</a>
+  <a class="btn btn-secondary" href="{{ url_for('ingest.import_website') }}">+ From website</a>
+  <a class="btn btn-secondary" href="{{ url_for('ingest.import_instagram') }}">+ From Instagram</a>
+  <a class="btn btn-secondary" href="{{ url_for('ingest.import_screenshot') }}">+ From screenshot</a>
+</div>
 
 {% if recipes %}
 <ul class="plain">
