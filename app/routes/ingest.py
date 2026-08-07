@@ -1,10 +1,11 @@
 import base64
+from datetime import timedelta
 
 from flask import Blueprint, render_template, request, redirect, url_for, g, jsonify
 
 from app.extensions import db
 from app.auth_utils import login_required, token_required
-from app.models import Recipe
+from app.models import Recipe, utcnow
 from app.services.parsing import (
     import_from_website,
     import_from_instagram,
@@ -198,41 +199,41 @@ def api_ingest():
     Authenticated via api_token bearer header (see token_required), not a
     session cookie, since there's no browser session when a Shortcut fires.
 
-    POST {"url": "..."} -> tries to fetch+parse the post's public caption;
-    if that fails (private account, blocked fetch, or Claude can't find a
-    recipe in what it found), saves a stub instead of failing the request.
-    Either way the recipe is saved immediately with needs_review=True, since
-    nobody was looking at a screen to confirm it — no review-before-save
-    step here, unlike the paste-text/screenshot paths."""
+    POST {"url": "..."} -> fetches the post's public caption (a plain HTTP
+    GET, no API key involved) and saves a stub recipe with needs_review=True.
+    Deliberately does NOT call Claude here — that would require
+    ANTHROPIC_API_KEY and bill per share. Structured parsing instead happens
+    later via the terminal review queue (see scripts/review_queue.py).
+
+    Idempotent on (owner, source_url) within a short window: the Shortcut
+    retries on a timed-out response (e.g. a slow Render cold start), and a
+    timeout doesn't mean the first request didn't land — so a retry returns
+    the existing stub instead of creating a duplicate."""
     data = request.get_json(silent=True) or {}
     url = (data.get("url") or "").strip()
     if not url:
         return jsonify({"error": "url is required."}), 400
 
-    caption = fetch_instagram_caption(url)
-    parsed = parse_recipe_with_claude(caption) if caption else None
+    recent_duplicate = (
+        Recipe.query.filter_by(owner_id=g.user.id, source_url=url)
+        .filter(Recipe.created_at >= utcnow() - timedelta(minutes=5))
+        .first()
+    )
+    if recent_duplicate is not None:
+        return jsonify({"id": recent_duplicate.id, "title": recent_duplicate.title}), 201
 
-    if parsed and "error" not in parsed:
-        title = parsed.get("title") or "New Instagram recipe"
-        ingredients = parsed.get("ingredients") or []
-        steps = parsed.get("steps") or []
-        servings = parsed.get("servings")
-    else:
-        title = "New Instagram recipe"
-        ingredients = []
-        steps = []
-        servings = None
+    caption = fetch_instagram_caption(url)
 
     recipe = Recipe(
         owner_id=g.user.id,
-        title=title,
+        title="New Instagram recipe",
         source_type="instagram",
         source_url=url,
         raw_text=caption,
-        ingredients=ingredients,
-        steps=steps,
+        ingredients=[],
+        steps=[],
         tags=[],
-        servings=servings,
+        servings=None,
         needs_review=True,
     )
     db.session.add(recipe)
