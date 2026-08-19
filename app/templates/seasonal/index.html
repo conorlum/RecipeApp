@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Seasonal suggestions{% endblock %}
+{% block content %}
+<h1>What's in season — {{ month_name }}</h1>
+<p class="muted">Based on typical Northern Hemisphere (US) harvest timing.</p>
+
+{% if produce %}
+<div class="row" style="flex-wrap: wrap; gap: 0.4em; margin-bottom: 1.5em;">
+  {% for item in produce %}
+  <span class="badge" style="background:#d9f2d0; color:#2c5c1c;">{{ item }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2>Recipes worth making right now</h2>
+{% if ranked %}
+<ul class="plain">
+  {% for recipe, matches in ranked %}
+  <li>
+    <a href="{{ url_for('recipes.detail', recipe_id=recipe.id) }}">{{ recipe.title }}</a>
+    <span class="muted">
+      — {{ matches | length }} in-season ingredient{{ 's' if matches | length != 1 else '' }}:
+      {{ matches | join(', ') }}
+    </span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">None of your recipes use this month's in-season ingredients yet.</p>
+{% endif %}
+{% endblock %}
